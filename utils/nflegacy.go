@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"time"
+	"net"
 
 	"github.com/cloudflare/goflow/v3/decoders/netflowlegacy"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
@@ -76,6 +77,36 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 		fmsg.TimeReceived = ts
 		fmsg.SamplerAddress = samplerAddress
 	}
+
+        _, cidr, err := net.ParseCIDR("192.168.1.0/24")
+        if err != nil {
+          return err
+        }
+
+	for _, flowMsg := range flowMessageSet {
+            src := flowMsg.GetSrcAddr()
+            dst := flowMsg.GetDstAddr()
+
+            if(cidr.Contains(src)) {
+                //m.srcMap[net.IP(src).String()] = m.srcMap[net.IP(src).String()] + flowMsg.GetBytes()
+		MetricTrafficBytesByHost.With(
+                    prometheus.Labels{
+                        "host_ip": net.IP(src).String(),
+                        "type": "src",
+                    }).
+                    Add(float64(flowMsg.GetBytes()))
+                }
+                if(cidr.Contains(dst)) {
+                 //       m.dstMap[net.IP(dst).String()] = m.dstMap[net.IP(dst).String()] + flowMsg.GetBytes()
+                MetricTrafficBytesByHost.With(
+                    prometheus.Labels{
+                        "host_ip": net.IP(dst).String(),
+                        "type": "dst",
+                    }).
+                    Add(float64(flowMsg.GetBytes()))
+                }
+		//                m.log.Infof("%s>%s:%s", net.IP(src), net.IP(dst), flowMsg.GetBytes())
+        }
 
 	if s.Transport != nil {
 		s.Transport.Publish(flowMessageSet)

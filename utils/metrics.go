@@ -8,6 +8,13 @@ import (
 )
 
 var (
+        MetricTrafficBytesByHost = prometheus.NewCounterVec(
+                prometheus.CounterOpts{
+                        Name: "host_traffic_bytes",
+                        Help: "Bytes by host.",
+                },
+                []string{"host_ip", "type"},
+        )
 	MetricTrafficBytes = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "flow_traffic_bytes",
@@ -134,6 +141,7 @@ var (
 )
 
 func init() {
+	prometheus.MustRegister(MetricTrafficBytesByHost)
 	prometheus.MustRegister(MetricTrafficBytes)
 	prometheus.MustRegister(MetricTrafficPackets)
 	prometheus.MustRegister(MetricPacketSizeSum)

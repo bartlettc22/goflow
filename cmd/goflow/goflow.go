@@ -109,13 +109,13 @@ func main() {
 		sNF.Transport = kafkaState
 	}
 
-	metricsCollectorTransport, err := transport.StartMetricsCollectorFromArgs(log.StandardLogger())
+	/*(metricsCollectorTransport, err := transport.StartMetricsCollectorFromArgs(log.StandardLogger())
 	if err != nil {
 		log.Fatal(err)
 	}
 	sSFlow.Transport = metricsCollectorTransport
 	sNFL.Transport = metricsCollectorTransport
-	sNF.Transport = metricsCollectorTransport
+	sNF.Transport = metricsCollectorTransport*/
 
 	wg := &sync.WaitGroup{}
 	if *SFlowEnable {

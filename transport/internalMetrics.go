@@ -9,10 +9,12 @@ import (
 	// "os"
 	// "reflect"
 	// "strings"
+	"net"
 	//
 	// sarama "github.com/Shopify/sarama"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
 	"github.com/cloudflare/goflow/v3/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/davecgh/go-spew/spew"
 	// proto "github.com/golang/protobuf/proto"
 )
@@ -43,6 +45,8 @@ import (
 
 type MetricsCollector struct {
   log utils.Logger
+  srcMap map[string]uint64
+  dstMap map[string]uint64
 }
 //
 // // SetKafkaVersion sets the KafkaVersion that is used to set the log message format version
@@ -70,8 +74,16 @@ type MetricsCollector struct {
 // 	KafkaVersion = flag.String("kafka.version", "0.11.0.0", "Log message version (must be a version that parses per sarama.ParseKafkaVersion)")
 // }
 
+var(	MetricTrafficBytesByHost = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "host_traffic_bytes",
+			Help: "Bytes by host.",
+		},
+		[]string{"host_ip", "type"},
+	)
+)
 func StartMetricsCollectorFromArgs(log utils.Logger) (*MetricsCollector, error) {
-	return &MetricsCollector{log: log}, nil
+	return &MetricsCollector{log: log, srcMap: make(map[string]uint64), dstMap: make(map[string]uint64)}, nil
 	// kVersion, err := ParseKafkaVersion(*KafkaVersion)
 	// if err != nil {
 	// 	return nil, err
@@ -190,8 +202,32 @@ func (m MetricsCollector) Publish(msgs []*flowmessage.FlowMessage) {
 	// for _, msg := range msgs {
 	// 	s.SendKafkaFlowMessage(msg)
 	// }
-	m.log.Warn("Got a message")
-	m.log.Infof("Got a message")
-	m.log.Debug("Got a message")
+	_, cidr, err := net.ParseCIDR("192.168.1.0/24")
+	if err != nil {
+	  m.log.Error(err)
+	}
+
+
 	spew.Dump(msgs)
+	for _, flowMsg := range msgs {
+		src := flowMsg.GetSrcAddr()
+		dst := flowMsg.GetDstAddr()
+
+		if(cidr.Contains(src)) {
+			m.srcMap[net.IP(src).String()] = m.srcMap[net.IP(src).String()] + flowMsg.GetBytes()
+MetricTrafficBytesByHost.With(
+			prometheus.Labels{
+				"host_ip": net.IP(src).String(),
+				"type": "src",
+			}).
+			Add(float64(flowMsg.GetBytes()))
+		}
+                if(cidr.Contains(dst)) {
+                        m.dstMap[net.IP(dst).String()] = m.dstMap[net.IP(dst).String()] + flowMsg.GetBytes()
+                }
+		m.log.Infof("%s>%s:%s", net.IP(src), net.IP(dst), flowMsg.GetBytes())
+	}
+
+	spew.Dump(m.srcMap)
+	spew.Dump(m.dstMap)
 }
